@@ -196,13 +196,13 @@ export const TABLES = [
         formOrder: 50,
       },
       images: {
-        description: 'รูปภาพรถ (สูงสุด 5 ภาพ) — วาง URL ในแต่ละช่อง',
+        description: 'รูปภาพรถ (สูงสุด 5 ภาพ) — นำเข้าจากไฟล์ในแต่ละช่อง',
         group: 'design',
         type: 'image_gallery',
         formOrder: 51,
       },
       image_url: {
-        description: 'URL รูปภาพรถ (เดิม — ใช้ฟิลด์ "รูปภาพรถ" แทน)',
+        description: 'รูปภาพรถ (เดิม — ใช้ฟิลด์ "รูปภาพรถ" แบบนำเข้าจากไฟล์แทน)',
         group: 'design',
         type: 'text',
         formOrder: 52,
@@ -391,7 +391,7 @@ export const TABLES = [
         formOrder: 51,
       },
       image_url: {
-        description: 'URL รูปภาพรถ (เดิม — ใช้ฟิลด์ "รูปภาพรถ" แทน)',
+        description: 'รูปภาพรถ (เดิม — ใช้ฟิลด์ "รูปภาพรถ" แบบนำเข้าจากไฟล์แทน)',
         group: 'design',
         type: 'text',
         formOrder: 52,
@@ -562,7 +562,7 @@ export const TABLES = [
         formOrder: 51,
       },
       image_url: {
-        description: 'URL รูปภาพรถ (เดิม — ใช้ฟิลด์ "รูปภาพรถ" แทน)',
+        description: 'รูปภาพรถ (เดิม — ใช้ฟิลด์ "รูปภาพรถ" แบบนำเข้าจากไฟล์แทน)',
         group: 'design',
         type: 'text',
         formOrder: 52,

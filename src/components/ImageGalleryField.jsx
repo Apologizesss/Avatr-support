@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Image as ImageIcon, X, Link2, UploadCloud } from 'lucide-react'
+import { Image as ImageIcon, X, UploadCloud } from 'lucide-react'
 import { deleteImageFileAndMapping, insertImageMapping, uploadImage } from '../lib/supabase'
 
 export const MAX_IMAGES = 5
@@ -78,9 +78,8 @@ export function serializeImageGalleryValue(arr) {
 }
 
 /**
- * 5-slot image gallery editor (URL only — no upload).
- * Stores value as a JSON-stringified array of URLs (matching the JSON-string
- * pattern used by other complex types in RowEditor).
+ * 5-slot image gallery editor (file upload only).
+ * Stores value as a JSON-stringified array of uploaded image URLs.
  */
 export function ImageGalleryField({ value, onChange, hasError, columnKey, tableId, rowId }) {
   const rawItems = parseImageGalleryRaw(value)
@@ -89,12 +88,6 @@ export function ImageGalleryField({ value, onChange, hasError, columnKey, tableI
 
   const update = (next) => {
     onChange(serializeImageGalleryValue(next))
-  }
-
-  const setSlot = (idx, url) => {
-    const next = [...slots]
-    next[idx] = url
-    update(next)
   }
 
   const handleUpload = async (file, idx) => {
@@ -130,8 +123,7 @@ export function ImageGalleryField({ value, onChange, hasError, columnKey, tableI
         table_name: tableId,
         row_id: String(rowId),
       }
-      const current = parseImageGalleryRaw(value)
-      const next = [...current]
+      const next = [...slots]
       next[idx] = item
       update(next)
     } catch (e) {
@@ -195,7 +187,6 @@ export function ImageGalleryField({ value, onChange, hasError, columnKey, tableI
             key={idx}
             index={idx}
             url={extractImageUrl(url)}
-            onChange={(u) => setSlot(idx, u)}
             onRemove={() => {
               void removeSlot(idx)
             }}
@@ -206,14 +197,14 @@ export function ImageGalleryField({ value, onChange, hasError, columnKey, tableI
       </div>
 
       <p className="text-[11px] text-brand-500 dark:text-brand-400 flex items-start gap-1">
-        <Link2 className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
-        วาง URL รูปภาพหรืออัปโหลดไฟล์ (สูงสุด {MAX_IMAGES} ภาพ)
+        <UploadCloud className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
+        นำเข้ารูปจากไฟล์ได้สูงสุด {MAX_IMAGES} ภาพ
       </p>
     </div>
   )
 }
 
-function ImageSlot({ index, url, onChange, onRemove, onUpload, hasError }) {
+function ImageSlot({ index, url, onRemove, onUpload, hasError }) {
   const [loadError, setLoadError] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef(null)
@@ -244,7 +235,7 @@ function ImageSlot({ index, url, onChange, onRemove, onUpload, hasError }) {
           <div className="flex flex-col items-center gap-1 text-brand-400 dark:text-brand-500">
             <ImageIcon className="w-7 h-7" />
             <span className="text-[10px] font-medium">
-              {hasUrl ? (valid ? 'โหลดไม่ได้' : 'URL ไม่ถูกต้อง') : `ช่อง ${index + 1}`}
+              {hasUrl ? (valid ? 'โหลดไม่ได้' : 'รูปไม่ถูกต้อง') : `ช่อง ${index + 1}`}
             </span>
           </div>
         )}
@@ -263,7 +254,7 @@ function ImageSlot({ index, url, onChange, onRemove, onUpload, hasError }) {
             type="button"
             onClick={() => fileRef.current && fileRef.current.click()}
             className="p-1 rounded-full bg-black/60 text-white hover:bg-brand-600 transition-colors"
-            title="อัปโหลดรูป"
+            title={hasUrl ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}
           >
             {uploading ? <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" /></svg> : <UploadCloud className="w-3.5 h-3.5" />}
           </button>
@@ -286,13 +277,13 @@ function ImageSlot({ index, url, onChange, onRemove, onUpload, hasError }) {
           }}
         />
       </div>
-      <input
-        type="url"
-        className="w-full text-[11px] font-mono px-2 py-1.5 border-t border-brand-200 dark:border-brand-700 bg-white dark:bg-brand-900 text-brand-900 dark:text-brand-100 focus:outline-none focus:bg-brand-50 dark:focus:bg-brand-950"
-        placeholder={`URL ${index + 1}`}
-        value={url}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <button
+        type="button"
+        onClick={() => fileRef.current && fileRef.current.click()}
+        className="w-full text-[11px] font-medium px-2 py-1.5 border-t border-brand-200 dark:border-brand-700 bg-white dark:bg-brand-900 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-800 transition-colors"
+      >
+        {hasUrl ? 'เปลี่ยนไฟล์รูป' : `นำเข้ารูปช่อง ${index + 1}`}
+      </button>
     </div>
   )
 }
