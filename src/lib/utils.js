@@ -105,12 +105,28 @@ export function parseInputValue(raw, type) {
     return isNaN(n) ? null : n
   }
   if (type === 'image_gallery') {
-    if (Array.isArray(raw)) return raw.filter((x) => typeof x === 'string' && x.trim() !== '')
+    if (Array.isArray(raw)) {
+      return raw.filter((x) => {
+        if (typeof x === 'string') return x.trim() !== ''
+        if (x && typeof x === 'object') {
+          const u = String(x.url || x.public_url || '').trim()
+          return !!u
+        }
+        return false
+      })
+    }
     if (typeof raw === 'string') {
       try {
         const parsed = JSON.parse(raw)
         if (Array.isArray(parsed)) {
-          return parsed.filter((x) => typeof x === 'string' && x.trim() !== '')
+          return parsed.filter((x) => {
+            if (typeof x === 'string') return x.trim() !== ''
+            if (x && typeof x === 'object') {
+              const u = String(x.url || x.public_url || '').trim()
+              return !!u
+            }
+            return false
+          })
         }
       } catch {
         // fall through

@@ -100,3 +100,66 @@ export async function testConnection({ url, anonKey }) {
     return { ok: false, error: e.message }
   }
 }
+
+export async function uploadImage(bucket, tableName, rowId, file) {
+  const supabase = getClient()
+  const fileName = `${crypto.randomUUID()}-${file.name}`
+  const path = `${tableName}/${rowId}/${fileName}`
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file)
+  if (error) throw error
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(data.path)
+  return { path: data.path, publicUrl: urlData.publicUrl }
+}
+
+export async function insertImageMapping({
+  tableName,
+  rowId,
+  bucket,
+  path,
+  publicUrl,
+  metadata = {},
+  uploadedBy = null,
+}) {
+  const supabase = getClient()
+  const { data, error } = await supabase
+    .from('images')
+    .insert([
+      {
+        table_name: tableName,
+        row_id: String(rowId),
+        bucket,
+        path,
+        public_url: publicUrl,
+        metadata,
+        uploaded_by: uploadedBy,
+      },
+    ])
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteImageFileAndMapping({
+  tableName,
+  rowId,
+  bucket,
+  path,
+}) {
+  const supabase = getClient()
+
+  if (bucket && path) {
+    const { error: storageError } = await supabase.storage.from(bucket).remove([path])
+    if (storageError) throw storageError
+  }
+
+  const { error: mapError } = await supabase
+    .from('images')
+    .delete()
+    .eq('table_name', tableName)
+    .eq('row_id', String(rowId))
+    .eq('path', path)
+
+  if (mapError) throw mapError
+}

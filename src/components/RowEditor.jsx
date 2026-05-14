@@ -276,6 +276,8 @@ export const RowEditor = forwardRef(function RowEditor(
                       meta={meta}
                       value={values[col.key] ?? ''}
                       onChange={(v) => handleChange(col.key, v)}
+                      tableId={table?.id}
+                      rowId={initialRow?.id}
                       hasError={!!errors[col.key]}
                     />
 
@@ -306,7 +308,7 @@ export const RowEditor = forwardRef(function RowEditor(
   )
 })
 
-function FieldInput({ col, meta, value, onChange, hasError }) {
+function FieldInput({ col, meta, value, onChange, hasError, tableId, rowId }) {
   const errorClass = hasError ? '!border-red-500 dark:!border-red-400' : ''
 
   // Image gallery (up to 5 URLs)
@@ -317,6 +319,8 @@ function FieldInput({ col, meta, value, onChange, hasError }) {
         onChange={onChange}
         hasError={hasError}
         columnKey={col.key}
+        tableId={tableId}
+        rowId={rowId}
       />
     )
   }
