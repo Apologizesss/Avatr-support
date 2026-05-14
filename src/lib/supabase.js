@@ -134,8 +134,6 @@ export async function insertImageMapping({
         uploaded_by: uploadedBy,
       },
     ])
-    .select('*')
-    .single()
 
   if (error) throw error
   return data

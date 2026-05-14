@@ -101,19 +101,34 @@ export function ImageGalleryField({ value, onChange, hasError, columnKey, tableI
       const { path, publicUrl } = await uploadImage(bucket, tableId, rowId, file)
 
       // Insert mapping row immediately (Option B)
-      await insertImageMapping({
-        tableName: tableId,
-        rowId,
-        bucket,
-        path,
-        publicUrl,
-        metadata: {
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          source_column: columnKey,
-        },
-      })
+      try {
+        await insertImageMapping({
+          tableName: tableId,
+          rowId,
+          bucket,
+          path,
+          publicUrl,
+          metadata: {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            source_column: columnKey,
+          },
+        })
+      } catch (mappingError) {
+        // Keep storage and DB in sync if the mapping insert is blocked by RLS.
+        try {
+          await deleteImageFileAndMapping({
+            tableName: tableId,
+            rowId,
+            bucket,
+            path,
+          })
+        } catch (cleanupError) {
+          console.error('Cleanup after mapping failure also failed', cleanupError)
+        }
+        throw mappingError
+      }
 
       // Keep JSONB field updated in current row editor value (Option A)
       const item = {
