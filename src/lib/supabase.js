@@ -104,6 +104,9 @@ export async function testConnection({ url, anonKey }) {
 export async function uploadImage(bucket, tableName, rowId, file) {
   const serverResult = await uploadImageViaApi({ bucket, tableName, rowId, file })
   if (serverResult.ok) return serverResult.data
+  if (isUsingEnvConfig()) {
+    throw new Error(serverResult.error || 'Server upload failed')
+  }
 
   const supabase = getClient()
   const fileName = `${crypto.randomUUID()}-${file.name}`
@@ -150,6 +153,9 @@ export async function deleteImageFileAndMapping({
 }) {
   const serverResult = await deleteImageViaApi({ tableName, rowId, bucket, path })
   if (serverResult.ok) return
+  if (isUsingEnvConfig()) {
+    throw new Error(serverResult.error || 'Server delete failed')
+  }
 
   const supabase = getClient()
 
@@ -191,12 +197,15 @@ async function uploadImageViaApi({ bucket, tableName, rowId, file }) {
       body: JSON.stringify(body),
     })
 
-    if (!res.ok) return { ok: false }
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      return { ok: false, error: text || `HTTP ${res.status}` }
+    }
     const payload = await res.json()
-    if (!payload?.ok) return { ok: false }
+    if (!payload?.ok) return { ok: false, error: payload?.error || 'Server upload failed' }
     return { ok: true, data: payload.data }
-  } catch {
-    return { ok: false }
+  } catch (error) {
+    return { ok: false, error: error?.message || 'Server upload failed' }
   }
 }
 
@@ -214,12 +223,15 @@ async function deleteImageViaApi({ tableName, rowId, bucket, path }) {
       body: JSON.stringify({ tableName, rowId: String(rowId), bucket, path }),
     })
 
-    if (!res.ok) return { ok: false }
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      return { ok: false, error: text || `HTTP ${res.status}` }
+    }
     const payload = await res.json()
-    if (!payload?.ok) return { ok: false }
+    if (!payload?.ok) return { ok: false, error: payload?.error || 'Server delete failed' }
     return { ok: true }
-  } catch {
-    return { ok: false }
+  } catch (error) {
+    return { ok: false, error: error?.message || 'Server delete failed' }
   }
 }
 
