@@ -102,6 +102,9 @@ export async function testConnection({ url, anonKey }) {
 }
 
 export async function uploadImage(bucket, tableName, rowId, file) {
+  const serverResult = await uploadImageViaApi({ bucket, tableName, rowId, file })
+  if (serverResult.ok) return serverResult.data
+
   const supabase = getClient()
   const fileName = `${crypto.randomUUID()}-${file.name}`
   const path = `${tableName}/${rowId}/${fileName}`
@@ -145,6 +148,9 @@ export async function deleteImageFileAndMapping({
   bucket,
   path,
 }) {
+  const serverResult = await deleteImageViaApi({ tableName, rowId, bucket, path })
+  if (serverResult.ok) return
+
   const supabase = getClient()
 
   if (bucket && path) {
@@ -160,4 +166,70 @@ export async function deleteImageFileAndMapping({
     .eq('path', path)
 
   if (mapError) throw mapError
+}
+
+async function uploadImageViaApi({ bucket, tableName, rowId, file }) {
+  try {
+    const supabase = getClient()
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData?.session?.access_token || ''
+    const body = {
+      bucket,
+      tableName,
+      rowId: String(rowId),
+      fileName: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      base64: await fileToBase64(file),
+    }
+
+    const res = await fetch('/api/images/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!res.ok) return { ok: false }
+    const payload = await res.json()
+    if (!payload?.ok) return { ok: false }
+    return { ok: true, data: payload.data }
+  } catch {
+    return { ok: false }
+  }
+}
+
+async function deleteImageViaApi({ tableName, rowId, bucket, path }) {
+  try {
+    const supabase = getClient()
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData?.session?.access_token || ''
+    const res = await fetch('/api/images/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({ tableName, rowId: String(rowId), bucket, path }),
+    })
+
+    if (!res.ok) return { ok: false }
+    const payload = await res.json()
+    if (!payload?.ok) return { ok: false }
+    return { ok: true }
+  } catch {
+    return { ok: false }
+  }
+}
+
+async function fileToBase64(file) {
+  const buffer = await file.arrayBuffer()
+  let binary = ''
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
 }
