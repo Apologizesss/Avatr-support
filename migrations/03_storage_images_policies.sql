@@ -80,7 +80,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT bucket_name FROM public.app_storage_policy_config WHERE id = 1;
+  SELECT COALESCE(
+    (SELECT bucket_name FROM public.app_storage_policy_config WHERE id = 1),
+    'avatr-images'
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.storage_allow_public_read()
@@ -90,7 +93,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT allow_public_read FROM public.app_storage_policy_config WHERE id = 1;
+  SELECT COALESCE(
+    (SELECT allow_public_read FROM public.app_storage_policy_config WHERE id = 1),
+    false
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.storage_allow_authenticated_read()
@@ -100,7 +106,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT allow_authenticated_read FROM public.app_storage_policy_config WHERE id = 1;
+  SELECT COALESCE(
+    (SELECT allow_authenticated_read FROM public.app_storage_policy_config WHERE id = 1),
+    true
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.storage_allow_authenticated_insert()
@@ -110,7 +119,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT allow_authenticated_insert FROM public.app_storage_policy_config WHERE id = 1;
+  SELECT COALESCE(
+    (SELECT allow_authenticated_insert FROM public.app_storage_policy_config WHERE id = 1),
+    true
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.storage_allow_authenticated_delete()
@@ -120,7 +132,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT allow_authenticated_delete FROM public.app_storage_policy_config WHERE id = 1;
+  SELECT COALESCE(
+    (SELECT allow_authenticated_delete FROM public.app_storage_policy_config WHERE id = 1),
+    true
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.storage_strict_whitelist()
@@ -130,7 +145,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT strict_whitelist FROM public.app_storage_policy_config WHERE id = 1;
+  SELECT COALESCE(
+    (SELECT strict_whitelist FROM public.app_storage_policy_config WHERE id = 1),
+    false
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_storage_admin()
@@ -140,9 +158,14 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT public.current_user_email() = ANY(admin_emails)
-  FROM public.app_storage_policy_config
-  WHERE id = 1;
+  SELECT COALESCE(
+    (
+      SELECT public.current_user_email() = ANY(admin_emails)
+      FROM public.app_storage_policy_config
+      WHERE id = 1
+    ),
+    false
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_storage_uploader_whitelisted()
@@ -152,12 +175,17 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT (
-    public.current_user_email() = ANY(uploader_emails)
-    OR public.current_user_email() = ANY(admin_emails)
-  )
-  FROM public.app_storage_policy_config
-  WHERE id = 1;
+  SELECT COALESCE(
+    (
+      SELECT (
+        public.current_user_email() = ANY(uploader_emails)
+        OR public.current_user_email() = ANY(admin_emails)
+      )
+      FROM public.app_storage_policy_config
+      WHERE id = 1
+    ),
+    false
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.can_storage_insert()
@@ -167,12 +195,17 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT CASE
-    WHEN strict_whitelist THEN public.is_storage_uploader_whitelisted()
-    ELSE allow_authenticated_insert OR public.is_storage_admin()
-  END
-  FROM public.app_storage_policy_config
-  WHERE id = 1;
+  SELECT COALESCE(
+    (
+      SELECT CASE
+        WHEN strict_whitelist THEN public.is_storage_uploader_whitelisted()
+        ELSE allow_authenticated_insert OR public.is_storage_admin()
+      END
+      FROM public.app_storage_policy_config
+      WHERE id = 1
+    ),
+    true
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.can_storage_delete()
@@ -182,12 +215,17 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT CASE
-    WHEN strict_whitelist THEN public.is_storage_uploader_whitelisted()
-    ELSE allow_authenticated_delete OR public.is_storage_admin()
-  END
-  FROM public.app_storage_policy_config
-  WHERE id = 1;
+  SELECT COALESCE(
+    (
+      SELECT CASE
+        WHEN strict_whitelist THEN public.is_storage_uploader_whitelisted()
+        ELSE allow_authenticated_delete OR public.is_storage_admin()
+      END
+      FROM public.app_storage_policy_config
+      WHERE id = 1
+    ),
+    true
+  );
 $$;
 
 
@@ -234,8 +272,8 @@ ON public.images
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  bucket = public.current_bucket_name()
-  AND public.can_storage_insert()
+  bucket = COALESCE(public.current_bucket_name(), 'avatr-images')
+  AND COALESCE(public.can_storage_insert(), true)
 );
 
 DROP POLICY IF EXISTS images_delete_policy ON public.images;
@@ -244,9 +282,9 @@ ON public.images
 FOR DELETE
 TO authenticated
 USING (
-  bucket = public.current_bucket_name()
+  bucket = COALESCE(public.current_bucket_name(), 'avatr-images')
   AND (
-    public.can_storage_delete()
+    COALESCE(public.can_storage_delete(), true)
     OR uploaded_by = public.current_user_email()
     OR public.is_storage_admin()
   )
@@ -287,8 +325,8 @@ ON storage.objects
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  bucket_id = public.current_bucket_name()
-  AND public.can_storage_insert()
+  bucket_id = COALESCE(public.current_bucket_name(), 'avatr-images')
+  AND COALESCE(public.can_storage_insert(), true)
 );
 
 DROP POLICY IF EXISTS storage_update_authenticated ON storage.objects;
@@ -297,16 +335,16 @@ ON storage.objects
 FOR UPDATE
 TO authenticated
 USING (
-  bucket_id = public.current_bucket_name()
+  bucket_id = COALESCE(public.current_bucket_name(), 'avatr-images')
   AND (
-    public.can_storage_delete()
+    COALESCE(public.can_storage_delete(), true)
     OR owner = auth.uid()
     OR public.is_storage_admin()
   )
 )
 WITH CHECK (
-  bucket_id = public.current_bucket_name()
-  AND public.can_storage_insert()
+  bucket_id = COALESCE(public.current_bucket_name(), 'avatr-images')
+  AND COALESCE(public.can_storage_insert(), true)
 );
 
 DROP POLICY IF EXISTS storage_delete_authenticated ON storage.objects;
@@ -315,9 +353,9 @@ ON storage.objects
 FOR DELETE
 TO authenticated
 USING (
-  bucket_id = public.current_bucket_name()
+  bucket_id = COALESCE(public.current_bucket_name(), 'avatr-images')
   AND (
-    public.can_storage_delete()
+    COALESCE(public.can_storage_delete(), true)
     OR owner = auth.uid()
     OR public.is_storage_admin()
   )
